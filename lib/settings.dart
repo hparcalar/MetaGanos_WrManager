@@ -20,14 +20,14 @@ class _SettingsPageState extends State<SettingsPage> {
   final txtWarehouseCode = TextEditingController();
 
   @override
-  void initState() async {
+  void initState() {
     // TODO: implement initState
     super.initState();
 
     final configFile = File('data/settings.json');
 
     try {
-      final contents = await configFile.readAsString();
+      final contents = configFile.readAsStringSync();
       final configObj = jsonDecode(contents);
       txtServerAddr.text = configObj['serverAddr'];
       txtDealerCode.text = configObj['dealerCode'];
