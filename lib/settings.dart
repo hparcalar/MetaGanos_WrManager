@@ -18,22 +18,29 @@ class _SettingsPageState extends State<SettingsPage> {
   final txtPlantCode = TextEditingController();
   final txtDealerCode = TextEditingController();
   final txtWarehouseCode = TextEditingController();
+  bool? chkEmployeeSelection = false;
 
   @override
   void initState() {
     // TODO: implement initState
     super.initState();
 
-    final configFile = File('data/settings.json');
+    File('data/settings.json').create(recursive: true).then((File configFile) {
+      try {
+        final contents = configFile.readAsStringSync();
+        final configObj = jsonDecode(contents);
+        txtServerAddr.text = configObj['serverAddr'];
+        txtDealerCode.text = configObj['dealerCode'];
+        txtPlantCode.text = configObj['plantCode'];
+        txtWarehouseCode.text = configObj['warehouseCode'];
 
-    try {
-      final contents = configFile.readAsStringSync();
-      final configObj = jsonDecode(contents);
-      txtServerAddr.text = configObj['serverAddr'];
-      txtDealerCode.text = configObj['dealerCode'];
-      txtPlantCode.text = configObj['plantCode'];
-      txtWarehouseCode.text = configObj['warehouseCode'];
-    } catch (e) {}
+        if (configObj['employeeSelection'] != null) {
+          setState(() {
+            chkEmployeeSelection = configObj['employeeSelection'];
+          });
+        }
+      } catch (e) {}
+    });
   }
 
   void _saveSettings() {
@@ -42,6 +49,7 @@ class _SettingsPageState extends State<SettingsPage> {
     configObj['dealerCode'] = txtDealerCode.text;
     configObj['plantCode'] = txtPlantCode.text;
     configObj['warehouseCode'] = txtWarehouseCode.text;
+    configObj['employeeSelection'] = chkEmployeeSelection;
     final String configJson = jsonEncode(configObj);
 
     final configFile = File('data/settings.json');
@@ -146,6 +154,32 @@ class _SettingsPageState extends State<SettingsPage> {
                     ),
                   ),
                 ),
+              ],
+            ),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.start,
+              children: [
+                SizedBox(
+                  width: 400,
+                  child: Padding(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        const Text('Personel Seçimi'),
+                        Checkbox(
+                          onChanged: (bool? value) {
+                            setState(() {
+                              chkEmployeeSelection = value;
+                            });
+                          },
+                          value: chkEmployeeSelection,
+                        ),
+                      ],
+                    ),
+                  ),
+                )
               ],
             )
           ],

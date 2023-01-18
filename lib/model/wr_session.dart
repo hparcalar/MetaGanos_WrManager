@@ -6,6 +6,7 @@ class WrSession {
   late String userName = '';
   late int plantId = 0;
   late int userId = 0;
+  late String readCardNo = '';
 
   factory WrSession() {
     return _singleton;

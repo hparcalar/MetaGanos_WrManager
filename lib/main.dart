@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:wr_manager/login.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 
 void main() {
   runApp(const WrApp());
@@ -14,6 +15,10 @@ class WrApp extends StatelessWidget {
     return MaterialApp(
       title: 'MetaGanos Depo Yönetimi',
       debugShowCheckedModeBanner: false,
+      localizationsDelegates: GlobalMaterialLocalizations.delegates,
+      supportedLocales: const [
+        Locale('tr', 'TR'), // Türkçe
+      ],
       theme: ThemeData(
         // This is the theme of your application.
         //

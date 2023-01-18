@@ -139,7 +139,7 @@ Future<void> showEmployeeList(
                     ),
                   ),
                   SizedBox(
-                    height: MediaQuery.of(context).size.height * 0.6 - 70,
+                    height: MediaQuery.of(context).size.height * 0.6 - 90,
                     child: SingleChildScrollView(
                       child: DataTable(
                           columns: const [

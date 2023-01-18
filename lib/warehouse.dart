@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 import 'package:intl/intl.dart';
+import 'dart:developer';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -11,6 +12,7 @@ import 'package:wr_manager/employee_credits.dart';
 import 'package:wr_manager/employee_history.dart';
 import 'package:wr_manager/employee_list.dart';
 import 'package:wr_manager/item_preview.dart';
+import 'package:wr_manager/login.dart';
 import 'package:wr_manager/model/wr_session.dart';
 import 'package:wr_manager/sale_history.dart';
 import 'package:wr_manager/ui/wr_alerts.dart';
@@ -27,11 +29,18 @@ class WarehousePage extends StatefulWidget {
 }
 
 class _WarehousePageState extends State<WarehousePage> {
+  var employeeObject = {
+    'id': 0,
+    'userName': '',
+    'departmentName': '',
+  };
+
   final txtCardNo = TextEditingController();
   final txtEmployeeName = TextEditingController();
   final txtDepartmentName = TextEditingController();
   final txtSearch = TextEditingController();
   late FocusNode focusNodeOfCardNo;
+  bool employeeSelection = false;
 
   @override
   void initState() {
@@ -39,6 +48,24 @@ class _WarehousePageState extends State<WarehousePage> {
     _bindCategories();
 
     focusNodeOfCardNo = FocusNode();
+
+    try {
+      WrSession session = WrSession();
+      if (session.readCardNo != null && session.readCardNo.length > 0) {
+        txtCardNo.text = session.readCardNo;
+        session.readCardNo = '';
+
+        _readCard();
+      }
+    } catch (e) {}
+
+    try {
+      AppConfig configManager = AppConfig();
+      var configObj = configManager.getConfigObject();
+      if (configObj['employeeSelection'] != null) {
+        employeeSelection = configObj['employeeSelection'];
+      }
+    } catch (e) {}
   }
 
   @override
@@ -47,7 +74,9 @@ class _WarehousePageState extends State<WarehousePage> {
     super.dispose();
   }
 
+  var warehouseId = 0;
   var isEmployeeSelected = false;
+  var receiptProcessing = false;
 
   var lastCardReadDate = DateTime.now();
   var cardTimeOutIsRunning = false;
@@ -55,16 +84,15 @@ class _WarehousePageState extends State<WarehousePage> {
   var lastFilterReadDate = DateTime.now();
   var filterTimeOutIsRunning = false;
 
-  var employeeObject = {
-    'id': 0,
-    'userName': '',
-    'departmentName': '',
-  };
+  var isDataLoading = false;
+
   var itemDetails = <dynamic>[
     // {itemId: 1, 'itemName': 'Eldiven', 'quantity': 5},
     // {'itemName': 'Gözlük', 'quantity': 2},
     // {'itemName': 'Kulaklık', 'quantity': 3},
   ];
+
+  var employeeCredits = <dynamic>[];
 
   var itemCategories = <dynamic>[];
   var itemGroups = <dynamic>[];
@@ -85,8 +113,13 @@ class _WarehousePageState extends State<WarehousePage> {
   // 0: categories, 1: groups, 2: items
   var itemViewType = 0;
 
-  void _closeApp() {
-    SystemChannels.platform.invokeMethod('SystemNavigator.pop');
+  void _closeApp() async {
+    await Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+          builder: (context) =>
+              const LoginPage(title: 'MetaGanos Depo Yönetimi')),
+    );
   }
 
   String _getRowData(int index, String field) {
@@ -103,18 +136,69 @@ class _WarehousePageState extends State<WarehousePage> {
     return filteredItems[index][field].toString();
   }
 
+  Uint8List getBytesOfItemImage(int index) {
+    // Image example. Put your data string
+    if (filteredItems[index]['itemImage'] != null &&
+        filteredItems[index]['itemImage'].toString().length > 0) {
+      String base64Image = filteredItems[index]['itemImage'].toString();
+
+      final UriData? data = Uri.parse(base64Image).data;
+
+      Uint8List? myImage = data?.contentAsBytes();
+      return myImage ?? Uint8List(0);
+    }
+
+    return Uint8List(0);
+  }
+
   void _appendItem(int itemIndex) {
+    if (employeeObject == null || employeeObject['id'] == 0) {
+      showWrAlert(context, 'Uyarı', 'Önce personel kartı okutulmalıdır.');
+      return;
+    }
+
+    if (employeeCredits == null || employeeCredits.length == 0) {
+      showWrAlert(
+          context, 'Uyarı', 'Personelin yeterli bakiyesi bulunmamaktadır.');
+      return;
+    }
+
     var itemRow = filteredItems[itemIndex];
+
+    var existingCredit = employeeCredits.firstWhere(
+        (d) =>
+            (d['itemId'] == null &&
+                d['itemGroupId'] == null &&
+                d['itemCategoryId'] == itemRow['itemCategoryId']) ||
+            (d['itemId'] == null &&
+                d['itemGroupId'] == itemRow['itemGroupId']) ||
+            (d['itemId'] == itemRow['id']),
+        orElse: () => null);
+
+    var existingItem = itemDetails
+        .firstWhere((d) => d['itemId'] == itemRow['id'], orElse: () => null);
+
+    var usedCredit = 0;
+    if (existingItem != null) {
+      usedCredit = existingItem['quantity'];
+    }
+
+    if (existingCredit == null ||
+        (existingCredit['rangeCredit'] - usedCredit) == 0) {
+      showWrAlert(
+          context, 'Uyarı', 'Bu ürün için yeterli bakiyeniz bulunmamaktadır.');
+      return;
+    }
+
     setState(() {
-      var existingItem = itemDetails.firstWhere(
-          (d) => d['itemName'] == itemRow['itemName'],
-          orElse: () => null);
       if (existingItem != null) {
         existingItem['quantity'] = existingItem['quantity'] + 1;
       } else {
         itemDetails.add({
           'itemName': itemRow['itemName'].toString(),
           'itemId': itemRow['id'],
+          'itemGroupId': itemRow['itemGroupId'],
+          'itemCategoryId': itemRow['itemCategoryId'],
           'quantity': 1,
         });
       }
@@ -139,13 +223,21 @@ class _WarehousePageState extends State<WarehousePage> {
     txtEmployeeName.text = '';
     txtDepartmentName.text = '';
 
+    _clearEmployeeInfo();
+
     setState(() {
       isEmployeeSelected = false;
       itemDetails = [];
     });
+
+    txtSearch.text = '';
+    _runFilter();
   }
 
   void _applyReceipt() async {
+    if (receiptProcessing == true) return;
+
+    receiptProcessing = true;
     try {
       if (itemDetails.isEmpty) {
         throw ('Önce listeye stok eklemelisiniz.');
@@ -204,9 +296,13 @@ class _WarehousePageState extends State<WarehousePage> {
         txtSearch.text = '';
         _runFilter();
       }
+
+      _clearEmployeeInfo();
     } catch (e) {
       showWrAlert(context, 'Uyarı', e.toString());
     }
+
+    receiptProcessing = false;
   }
 
   void _showEmployeeDialog() async {
@@ -233,7 +329,7 @@ class _WarehousePageState extends State<WarehousePage> {
     });
   }
 
-  void onEmployeeSelectedOnList(dynamic employeeParam) {
+  void onEmployeeSelectedOnList(dynamic employeeParam) async {
     if (employeeParam != null) {
       employeeObject['userName'] = employeeParam['employeeName'];
       employeeObject['id'] = employeeParam['id'];
@@ -246,6 +342,24 @@ class _WarehousePageState extends State<WarehousePage> {
       setState(() {
         isEmployeeSelected = true;
       });
+
+      AppConfig configManager = AppConfig();
+      var configObj = configManager.getConfigObject();
+      WrSession session = WrSession();
+
+      final creditResult = await get(
+          configObj['serverAddr'] + 'Employee/${employeeObject['id']}/Credits',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ${session.apiToken}',
+          });
+
+      if (creditResult.statusCode == 200) {
+        final creditBody = jsonDecode(creditResult.body);
+        setState(() {
+          employeeCredits = creditBody;
+        });
+      }
     }
   }
 
@@ -293,10 +407,9 @@ class _WarehousePageState extends State<WarehousePage> {
             'Content-Type': 'application/json',
             'Authorization': 'Bearer ${session.apiToken}',
           });
-
       if (getResult.statusCode == 200) {
         var itemList = jsonDecode(getResult.body);
-        showEmployeeCredits(context, itemList);
+        await showEmployeeCredits(context, itemList);
       }
     } catch (e) {}
   }
@@ -374,6 +487,7 @@ class _WarehousePageState extends State<WarehousePage> {
     txtCardNo.text = '';
     txtEmployeeName.text = '';
     txtDepartmentName.text = '';
+    employeeCredits = [];
 
     setState(() {
       isEmployeeSelected = false;
@@ -381,6 +495,10 @@ class _WarehousePageState extends State<WarehousePage> {
   }
 
   void _readCard() async {
+    setState(() {
+      isDataLoading = true;
+    });
+
     var cardNo = txtCardNo.text;
     AppConfig configManager = AppConfig();
     var configObj = configManager.getConfigObject();
@@ -403,9 +521,27 @@ class _WarehousePageState extends State<WarehousePage> {
       employeeObject['departmentName'] =
           loginBody['employee']['departmentName'];
 
+      WrSession session = WrSession();
+      session.apiToken = loginBody['token'];
+      session.plantId = loginBody['employee']['plantId'];
+
       txtEmployeeName.text = employeeObject['userName'].toString();
       txtDepartmentName.text = employeeObject['departmentName'].toString();
       txtCardNo.text = '';
+
+      final creditResult = await get(
+          configObj['serverAddr'] + 'Employee/${employeeObject['id']}/Credits',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ${session.apiToken}',
+          });
+
+      if (creditResult.statusCode == 200) {
+        final creditBody = jsonDecode(creditResult.body);
+        setState(() {
+          employeeCredits = creditBody;
+        });
+      }
 
       setState(() {
         isEmployeeSelected = true;
@@ -420,6 +556,7 @@ class _WarehousePageState extends State<WarehousePage> {
       txtCardNo.text = '';
 
       setState(() {
+        employeeCredits = [];
         isEmployeeSelected = false;
       });
 
@@ -430,6 +567,11 @@ class _WarehousePageState extends State<WarehousePage> {
         ScaffoldMessenger.of(context).showSnackBar(snackBar);
       }
     }
+    setState(() {
+      isDataLoading = false;
+    });
+
+    _bindCategories();
   }
 
   void _checkCardTimes() {
@@ -489,40 +631,42 @@ class _WarehousePageState extends State<WarehousePage> {
   }
 
   void _bindCategories() async {
+    setState(() {
+      isDataLoading = true;
+    });
+
     try {
       AppConfig configManager = AppConfig();
       WrSession session = WrSession();
       var configObj = configManager.getConfigObject();
-      final getResult =
-          await get(configObj['serverAddr'] + 'ItemCategory', headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer ${session.apiToken}',
-      });
+
+      final wrResult = await get(
+          configObj['serverAddr'] +
+              'Warehouse/GetByCode/${session.plantId}?wrCode=${configObj['warehouseCode']}',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ${session.apiToken}',
+          });
+      if (wrResult.statusCode != 200) return;
+      final warehouseModel = jsonDecode(wrResult.body);
+      warehouseId = warehouseModel['id'];
+
+      final getResult = await get(
+          configObj['serverAddr'] +
+              'ItemCategory/GetForWarehouse/${warehouseId}',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ${session.apiToken}',
+          });
       if (getResult.statusCode == 200) {
         var catList = jsonDecode(getResult.body);
 
-        // fetch category images
-        for (var cat in catList) {
-          try {
-            final catDetail = await get(
-                configObj['serverAddr'] + 'ItemCategory/${cat['id']}',
-                headers: {
-                  'Content-Type': 'application/json',
-                  'Authorization': 'Bearer ${session.apiToken}',
-                });
-            if (catDetail.statusCode == 200) {
-              setState(() {
-                final jsonDetails = jsonDecode(catDetail.body);
-                var catImageStr = jsonDetails['categoryImage'];
-                if (catImageStr != null && catImageStr.toString().isEmpty) {
-                  catImageStr = '';
-                } else {
-                  //catImageStr = catImageStr.toString().substring(23);
-                }
-                cat['categoryImage'] = catImageStr;
-              });
-            }
-          } catch (e) {}
+        // filter by employeeCredit
+        if (employeeObject['id'] != 0) {
+          catList = catList
+              .where((d) =>
+                  employeeCredits.any((c) => c['itemCategoryId'] == d['id']))
+              .toList();
         }
 
         setState(() {
@@ -530,6 +674,10 @@ class _WarehousePageState extends State<WarehousePage> {
         });
       }
     } catch (e) {}
+
+    setState(() {
+      isDataLoading = false;
+    });
   }
 
   Uint8List getBytesOfCategoryImage(int index) {
@@ -563,6 +711,10 @@ class _WarehousePageState extends State<WarehousePage> {
   }
 
   void _bindGroups() async {
+    setState(() {
+      isDataLoading = true;
+    });
+
     try {
       if (selectedCategory != null) {
         AppConfig configManager = AppConfig();
@@ -570,7 +722,7 @@ class _WarehousePageState extends State<WarehousePage> {
         var configObj = configManager.getConfigObject();
         final getResult = await get(
             configObj['serverAddr'] +
-                'ItemCategory/${selectedCategory['id']}/Groups',
+                'ItemCategory/${selectedCategory['id']}/GroupsForWarehouse/$warehouseId',
             headers: {
               'Content-Type': 'application/json',
               'Authorization': 'Bearer ${session.apiToken}',
@@ -579,28 +731,13 @@ class _WarehousePageState extends State<WarehousePage> {
         if (getResult.statusCode == 200) {
           var grList = jsonDecode(getResult.body);
 
-          // fetch group images
-          for (var gr in grList) {
-            try {
-              final grDetail = await get(
-                  configObj['serverAddr'] + 'ItemGroup/${gr['id']}',
-                  headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': 'Bearer ${session.apiToken}',
-                  });
-              if (grDetail.statusCode == 200) {
-                setState(() {
-                  final jsonDetails = jsonDecode(grDetail.body);
-                  var catImageStr = jsonDetails['groupImage'];
-                  if (catImageStr != null && catImageStr.toString().isEmpty) {
-                    catImageStr = '';
-                  } else {
-                    //catImageStr = catImageStr.toString().substring(23);
-                  }
-                  gr['groupImage'] = catImageStr;
-                });
-              }
-            } catch (e) {}
+          // filter by employeeCredit
+          if (employeeObject['id'] != 0) {
+            grList = grList
+                .where((d) => employeeCredits.any((c) =>
+                    c['itemCategoryId'] == d['itemCategoryId'] &&
+                    (c['itemGroupId'] == null || c['itemGroupId'] == d['id'])))
+                .toList();
           }
 
           setState(() {
@@ -615,9 +752,53 @@ class _WarehousePageState extends State<WarehousePage> {
         });
       }
     } catch (e) {}
+
+    setState(() {
+      isDataLoading = false;
+    });
+  }
+
+  String getCreditText(creditItem) {
+    var rangeText = '';
+    switch (creditItem['rangeType']) {
+      case 1:
+        rangeText = 'Günlük';
+        break;
+      case 2:
+        rangeText = 'Haftalık';
+        break;
+      case 3:
+        rangeText = 'Aylık';
+        break;
+      case 4:
+        rangeText = 'Sınırsız';
+        break;
+      default:
+        break;
+    }
+
+    if (creditItem['rangeLength'] > 1)
+      rangeText = creditItem['rangeLength'].toString() + ' ' + rangeText;
+
+    return (creditItem['itemName'].length > 0
+            ? creditItem['itemName']
+            : creditItem['itemGroupName'].length > 0
+                ? creditItem['itemGroupName']
+                : creditItem['itemCategoryName'].length > 0
+                    ? creditItem['itemCategoryName']
+                    : '') +
+        ', ' +
+        rangeText +
+        ': ' +
+        creditItem['rangeCredit'].toString() +
+        ' ADET';
   }
 
   void _bindItems() async {
+    setState(() {
+      isDataLoading = true;
+    });
+
     try {
       if ((selectedGroup != null && itemViewType == 1) || makeSearch) {
         AppConfig configManager = AppConfig();
@@ -627,7 +808,7 @@ class _WarehousePageState extends State<WarehousePage> {
         if (!makeSearch) {
           final getResult = await get(
               configObj['serverAddr'] +
-                  'ItemGroup/${selectedGroup['id']}/Items',
+                  'ItemGroup/ItemsForWarehouse/${selectedGroup['id']}/$warehouseId',
               headers: {
                 'Content-Type': 'application/json',
                 'Authorization': 'Bearer ${session.apiToken}',
@@ -635,6 +816,17 @@ class _WarehousePageState extends State<WarehousePage> {
 
           if (getResult.statusCode == 200) {
             var itemList = jsonDecode(getResult.body);
+
+            // filter by employeeCredit
+            if (employeeObject['id'] != 0) {
+              itemList = itemList
+                  .where((d) => employeeCredits.any((c) =>
+                      c['itemCategoryId'] == d['itemCategoryId'] &&
+                      (c['itemGroupId'] == null ||
+                          c['itemGroupId'] == d['itemGroupId']) &&
+                      (c['itemId'] == null || c['itemId'] == d['id'])))
+                  .toList();
+            }
 
             setState(() {
               filteredItems = itemList;
@@ -650,8 +842,11 @@ class _WarehousePageState extends State<WarehousePage> {
               itemViewType = 0;
             });
           } else {
+            var employeeId = employeeObject['id'];
             final getResult = await get(
-                configObj['serverAddr'] + 'Item/Search/' + txtSearch.text,
+                configObj['serverAddr'] +
+                    'Item/SearchForWarehouse/$warehouseId/$employeeId/' +
+                    txtSearch.text,
                 headers: {
                   'Content-Type': 'application/json',
                   'Authorization': 'Bearer ${session.apiToken}',
@@ -664,12 +859,26 @@ class _WarehousePageState extends State<WarehousePage> {
                 filteredItems = itemList;
                 items = itemList;
                 itemViewType = 2;
+
+                if (filteredItems.length > 0) {
+                  var firstItem = filteredItems[0];
+                  if (firstItem['barcode1'] == txtSearch.text ||
+                      firstItem['barcode2'] == txtSearch.text) {
+                    _appendItem(itemList.indexOf(firstItem));
+                    txtSearch.text = '';
+                    _runFilter();
+                  }
+                }
               });
             }
           }
         }
       }
     } catch (e) {}
+
+    setState(() {
+      isDataLoading = false;
+    });
   }
 
   void _showItemImage(int itemIndex) async {
@@ -764,12 +973,17 @@ class _WarehousePageState extends State<WarehousePage> {
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               SizedBox(
-                                  width:
-                                      MediaQuery.of(context).size.width * 0.3 -
-                                          10,
+                                  width: employeeSelection == false
+                                      ? MediaQuery.of(context).size.width *
+                                              0.4 -
+                                          20
+                                      : MediaQuery.of(context).size.width *
+                                              0.3 -
+                                          20,
                                   child: RawKeyboardListener(
                                     focusNode: focusNodeOfCardNo,
                                     child: TextFormField(
+                                      obscureText: true,
                                       controller: txtCardNo,
                                       decoration: const InputDecoration(
                                         border: UnderlineInputBorder(),
@@ -784,31 +998,33 @@ class _WarehousePageState extends State<WarehousePage> {
                                       }
                                     },
                                   )),
-                              SizedBox(
-                                width: MediaQuery.of(context).size.width * 0.1 -
-                                    10,
-                                height: 45,
-                                child: Padding(
-                                  padding: const EdgeInsets.only(left: 5),
-                                  child: ElevatedButton(
-                                    onPressed: _showEmployeeDialog,
-                                    child: Row(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.center,
-                                      children: const [
-                                        Text('SEÇ'),
-                                        Padding(
-                                          padding: EdgeInsets.only(left: 5),
-                                          child: Icon(
-                                            Icons.search,
-                                            size: 26.0,
-                                          ),
-                                        )
-                                      ],
+                              if (employeeSelection == true)
+                                SizedBox(
+                                  width:
+                                      MediaQuery.of(context).size.width * 0.1 -
+                                          10,
+                                  height: 45,
+                                  child: Padding(
+                                    padding: const EdgeInsets.only(left: 5),
+                                    child: ElevatedButton(
+                                      onPressed: _showEmployeeDialog,
+                                      child: Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        children: const [
+                                          Text('SEÇ'),
+                                          Padding(
+                                            padding: EdgeInsets.only(left: 5),
+                                            child: Icon(
+                                              Icons.search,
+                                              size: 26.0,
+                                            ),
+                                          )
+                                        ],
+                                      ),
                                     ),
                                   ),
                                 ),
-                              ),
                             ],
                           ),
                         ),
@@ -994,6 +1210,70 @@ class _WarehousePageState extends State<WarehousePage> {
                       mainAxisAlignment: MainAxisAlignment.end,
                       children: [
                         Padding(
+                            padding: const EdgeInsets.only(
+                                left: 5, top: 5, bottom: 5),
+                            child: SizedBox(
+                                width: MediaQuery.of(context).size.width * 0.3,
+                                child: Container(
+                                  alignment: Alignment.topLeft,
+                                  decoration: BoxDecoration(
+                                    border: Border.all(
+                                        color: Colors.deepOrangeAccent),
+                                    borderRadius: const BorderRadius.all(
+                                        Radius.circular(5)),
+                                  ),
+                                  child: Column(
+                                    mainAxisAlignment: MainAxisAlignment.start,
+                                    children: [
+                                      Container(
+                                        width:
+                                            MediaQuery.of(context).size.width *
+                                                0.3,
+                                        color: Colors.deepOrangeAccent,
+                                        height: 25,
+                                        child: const Text(
+                                          'Güncel Haklar',
+                                          style: TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              color: Colors.white),
+                                          textAlign: TextAlign.center,
+                                          textScaleFactor: 1.10,
+                                        ),
+                                      ),
+                                      SizedBox(
+                                          width: MediaQuery.of(context)
+                                                      .size
+                                                      .width *
+                                                  0.3 -
+                                              20,
+                                          height: 100,
+                                          child: GridView.count(
+                                            primary: false,
+                                            padding: const EdgeInsets.all(5),
+                                            crossAxisSpacing: 1,
+                                            mainAxisSpacing: 1,
+                                            crossAxisCount: 2,
+                                            childAspectRatio: 7,
+                                            children: List<SizedBox>.generate(
+                                              employeeCredits.length,
+                                              (creditIndex) => SizedBox(
+                                                  child: Text(
+                                                '■ ' +
+                                                    getCreditText(
+                                                        employeeCredits[
+                                                            creditIndex]),
+                                                style: const TextStyle(
+                                                    fontWeight:
+                                                        FontWeight.normal),
+                                                textAlign: TextAlign.left,
+                                                textScaleFactor: 0.85,
+                                              )),
+                                            ),
+                                          ))
+                                    ],
+                                  ),
+                                ))),
+                        Padding(
                           padding:
                               const EdgeInsets.only(left: 5, top: 5, bottom: 5),
                           child: OutlinedButton(
@@ -1132,13 +1412,11 @@ class _WarehousePageState extends State<WarehousePage> {
                                       }),
                                       cells: <DataCell>[
                                         DataCell(Text(
-                                            _getRowData(index, 'itemName'),
-                                            style:
-                                                const TextStyle(fontSize: 20))),
+                                          _getRowData(index, 'itemName'),
+                                        )),
                                         DataCell(Text(
                                             _getRowData(index, 'quantity'),
                                             style: const TextStyle(
-                                                fontSize: 20,
                                                 fontWeight: FontWeight.bold))),
                                         DataCell(
                                           OutlinedButton(
@@ -1171,10 +1449,14 @@ class _WarehousePageState extends State<WarehousePage> {
                                       },
                                     ),
                                   ),
-                                  dividerThickness: 5,
-                                  dataRowHeight: 80,
+                                  dividerThickness: 0,
+                                  dataRowHeight: 40,
                                   showCheckboxColumn: false,
                                   showBottomBorder: true,
+                                  dataTextStyle: const TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.black,
+                                  ),
                                   headingTextStyle: const TextStyle(
                                       fontWeight: FontWeight.bold,
                                       color: Colors.white),
@@ -1277,7 +1559,8 @@ class _WarehousePageState extends State<WarehousePage> {
                                                           Colors.white70)),
                                               onPressed: () => {
                                                 Future.delayed(
-                                                    Duration(milliseconds: 200),
+                                                    const Duration(
+                                                        milliseconds: 200),
                                                     _applyReceipt)
                                               },
                                               child: Row(
@@ -1327,7 +1610,7 @@ class _WarehousePageState extends State<WarehousePage> {
                                       controller: txtSearch,
                                       decoration: const InputDecoration(
                                         border: UnderlineInputBorder(),
-                                        labelText: 'ARAMA',
+                                        labelText: 'ARAMA / ÜRÜN BARKODU',
                                       ),
                                     ),
                                     onKey: (RawKeyEvent event) {
@@ -1402,7 +1685,8 @@ class _WarehousePageState extends State<WarehousePage> {
                           ],
                         ),
                       ),
-                      if (itemViewType == 0 || itemViewType == 1)
+                      if (!isDataLoading &&
+                          (itemViewType == 0 || itemViewType == 1))
                         SizedBox(
                           width: MediaQuery.of(context).size.width * 0.6,
                           height: MediaQuery.of(context).size.height - 275,
@@ -1508,10 +1792,13 @@ class _WarehousePageState extends State<WarehousePage> {
                                                                       fontSize:
                                                                           18)))),
                                                       if ((itemViewType == 0 &&
-                                                              itemCategories[index]
-                                                                      [
+                                                              itemCategories[index][
                                                                       'categoryImage'] !=
-                                                                  null) ||
+                                                                  null &&
+                                                              itemCategories[index]['categoryImage']
+                                                                      .toString()
+                                                                      .length >
+                                                                  0) ||
                                                           (itemViewType == 1 &&
                                                               itemGroups[index][
                                                                       'groupImage'] !=
@@ -1524,19 +1811,15 @@ class _WarehousePageState extends State<WarehousePage> {
                                                                     right: 5,
                                                                     bottom: 5),
                                                             child: Image.memory(
-                                                                itemViewType ==
-                                                                        0
+                                                                itemViewType == 0
                                                                     ? getBytesOfCategoryImage(
                                                                         index)
-                                                                    : getBytesOfGroupImage(
-                                                                        index),
+                                                                    : getBytesOfGroupImage(index),
                                                                 width: 100,
                                                                 // cacheWidth: 100,
                                                                 // cacheHeight: 100,
-                                                                gaplessPlayback:
-                                                                    true,
-                                                                fit: BoxFit
-                                                                    .fitWidth))
+                                                                gaplessPlayback: true,
+                                                                fit: BoxFit.fitWidth))
                                                     ],
                                                   ))),
                                         ),
@@ -1544,7 +1827,7 @@ class _WarehousePageState extends State<WarehousePage> {
                                     ))),
                           ),
                         )
-                      else
+                      else if (!isDataLoading)
                         SizedBox(
                           width: MediaQuery.of(context).size.width * 0.6,
                           height: MediaQuery.of(context).size.height - 275,
@@ -1572,6 +1855,8 @@ class _WarehousePageState extends State<WarehousePage> {
                                               child: SingleChildScrollView(
                                                 child: DataTable(
                                                   columns: const [
+                                                    DataColumn(
+                                                        label: Text('Resim')),
                                                     DataColumn(
                                                         label:
                                                             Text('Stok Adı')),
@@ -1610,6 +1895,28 @@ class _WarehousePageState extends State<WarehousePage> {
                                                         return null; // Use default value for other states and odd rows.
                                                       }),
                                                       cells: <DataCell>[
+                                                        if (_getItemRowData(
+                                                                    index,
+                                                                    'itemImage') !=
+                                                                null &&
+                                                            _getItemRowData(
+                                                                        index,
+                                                                        'itemImage')
+                                                                    .toString()
+                                                                    .length >
+                                                                0)
+                                                          DataCell(Image.memory(
+                                                              getBytesOfItemImage(
+                                                                  index),
+                                                              width: 100,
+                                                              // cacheWidth: 100,
+                                                              // cacheHeight: 100,
+                                                              gaplessPlayback:
+                                                                  true,
+                                                              fit: BoxFit
+                                                                  .fitWidth))
+                                                        else
+                                                          DataCell(Text('')),
                                                         DataCell(Text(
                                                             _getItemRowData(
                                                                 index,
@@ -1656,35 +1963,35 @@ class _WarehousePageState extends State<WarehousePage> {
                                                                 size: 26.0,
                                                               ),
                                                             ),
-                                                            Padding(
-                                                              padding:
-                                                                  const EdgeInsets
-                                                                          .only(
-                                                                      left: 5),
-                                                              child:
-                                                                  OutlinedButton(
-                                                                style: ButtonStyle(
-                                                                    shape: MaterialStateProperty.all(RoundedRectangleBorder(
-                                                                        borderRadius:
-                                                                            BorderRadius.circular(
-                                                                                5.0))),
-                                                                    side: MaterialStateProperty.all(const BorderSide(
-                                                                        color: Colors
-                                                                            .black87,
-                                                                        width:
-                                                                            1,
-                                                                        style: BorderStyle
-                                                                            .solid))),
-                                                                onPressed: () =>
-                                                                    _showItemImage(
-                                                                        index),
-                                                                child:
-                                                                    const Icon(
-                                                                  Icons.image,
-                                                                  size: 26.0,
-                                                                ),
-                                                              ),
-                                                            )
+                                                            // Padding(
+                                                            //   padding:
+                                                            //       const EdgeInsets
+                                                            //               .only(
+                                                            //           left: 5),
+                                                            //   child:
+                                                            //       OutlinedButton(
+                                                            //     style: ButtonStyle(
+                                                            //         shape: MaterialStateProperty.all(RoundedRectangleBorder(
+                                                            //             borderRadius:
+                                                            //                 BorderRadius.circular(
+                                                            //                     5.0))),
+                                                            //         side: MaterialStateProperty.all(const BorderSide(
+                                                            //             color: Colors
+                                                            //                 .black87,
+                                                            //             width:
+                                                            //                 1,
+                                                            //             style: BorderStyle
+                                                            //                 .solid))),
+                                                            //     onPressed: () =>
+                                                            //         _showItemImage(
+                                                            //             index),
+                                                            //     child:
+                                                            //         const Icon(
+                                                            //       Icons.image,
+                                                            //       size: 26.0,
+                                                            //     ),
+                                                            //   ),
+                                                            // )
                                                           ],
                                                         ))
                                                       ],
@@ -1707,6 +2014,16 @@ class _WarehousePageState extends State<WarehousePage> {
                                                 ),
                                               ),
                                             )))),
+                          ),
+                        )
+                      else
+                        SizedBox(
+                          width: MediaQuery.of(context).size.width * 0.6,
+                          height: MediaQuery.of(context).size.height - 275,
+                          child: Image.asset(
+                            'image/asset/loading.gif',
+                            height: 60,
+                            fit: BoxFit.scaleDown,
                           ),
                         )
                     ],

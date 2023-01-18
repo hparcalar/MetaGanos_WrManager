@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:developer';
 
 import 'package:flutter/material.dart';
 import 'package:wr_manager/main.dart';
@@ -9,6 +10,9 @@ import 'package:wr_manager/ui/wr_alerts.dart';
 // ignore: import_of_legacy_library_into_null_safe
 import 'package:http/http.dart';
 import 'package:wr_manager/warehouse.dart';
+import 'dart:io';
+import 'package:wr_manager/settings_pwd.dart';
+import 'package:wr_manager/read_card.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({Key? key, required this.title}) : super(key: key);
@@ -22,6 +26,28 @@ class LoginPage extends StatefulWidget {
 class _LoginPageState extends State<LoginPage> {
   final txtLogin = TextEditingController();
   final txtPassword = TextEditingController();
+  bool? chkRemindMe = false;
+
+  @override
+  void initState() {
+    // TODO: implement initState
+    super.initState();
+
+    File('data/settings.json').create(recursive: true).then((File configFile) {
+      try {
+        final contents = configFile.readAsStringSync();
+        final configObj = jsonDecode(contents);
+        if (configObj['remindedLogin'] != null &&
+            configObj['remindedPwd'] != null) {
+          setState(() {
+            txtLogin.text = configObj['remindedLogin'];
+            txtPassword.text = configObj['remindedPwd'];
+            chkRemindMe = true;
+          });
+        }
+      } catch (e) {}
+    });
+  }
 
   void _tryLogin() async {
     AppConfig configManager = AppConfig();
@@ -46,6 +72,41 @@ class _LoginPageState extends State<LoginPage> {
       session.userId = loginBody['UserId'];
       session.plantId = loginBody['FactoryId'];
 
+      // save if remind me checked
+      if (chkRemindMe == true) {
+        File('data/settings.json')
+            .create(recursive: true)
+            .then((File configFile) {
+          try {
+            final contents = configFile.readAsStringSync();
+            final configObj = jsonDecode(contents);
+            configObj['remindedLogin'] = txtLogin.text;
+            configObj['remindedPwd'] = txtPassword.text;
+
+            final String configJson = jsonEncode(configObj);
+
+            configFile.openWrite();
+            configFile.writeAsStringSync(configJson);
+          } catch (e) {}
+        });
+      } else {
+        File('data/settings.json')
+            .create(recursive: true)
+            .then((File configFile) {
+          try {
+            final contents = configFile.readAsStringSync();
+            final configObj = jsonDecode(contents);
+            configObj['remindedLogin'] = null;
+            configObj['remindedPwd'] = null;
+
+            final String configJson = jsonEncode(configObj);
+
+            configFile.openWrite();
+            configFile.writeAsStringSync(configJson);
+          } catch (e) {}
+        });
+      }
+
       // ignore: use_build_context_synchronously
       await Navigator.pushReplacement(
         context,
@@ -59,11 +120,37 @@ class _LoginPageState extends State<LoginPage> {
     }
   }
 
+  void _showCardLogin() {
+    showReadCardPrompt(context, _onCardRead);
+  }
+
+  void _onCardRead(String cardNo) async {
+    if (cardNo != null && cardNo.length > 0) {
+      WrSession session = WrSession();
+      session.readCardNo = cardNo;
+
+      await Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+            builder: (context) =>
+                const WarehousePage(title: 'MetaGanos Depo Yönetimi')),
+      );
+    }
+  }
+
   void _goSettings() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (context) => const SettingsPage(title: '')),
-    );
+    showPasswordPrompt(context, _openSettings);
+  }
+
+  void _openSettings(String password) {
+    if (password == "mg123") {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => const SettingsPage(title: '')),
+      );
+    } else {
+      showWrAlert(context, 'Hata', 'Hatalı parola girdiniz');
+    }
   }
 
   @override
@@ -97,8 +184,15 @@ class _LoginPageState extends State<LoginPage> {
               )),
         ],
       ),
-      body: Center(
-        child: Column(
+      body: Container(
+        decoration: BoxDecoration(
+          image: DecorationImage(
+            image: AssetImage("image/asset/login_bg.png"),
+            fit: BoxFit.fill,
+          ),
+        ),
+        child: Center(
+            child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: <Widget>[
             Image.asset(
@@ -106,7 +200,8 @@ class _LoginPageState extends State<LoginPage> {
               width: 400,
               fit: BoxFit.fitWidth,
             ),
-            SizedBox(
+            Container(
+              color: Color.fromARGB(200, 255, 255, 255),
               width: 400,
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
@@ -119,7 +214,8 @@ class _LoginPageState extends State<LoginPage> {
                 ),
               ),
             ),
-            SizedBox(
+            Container(
+              color: Color.fromARGB(200, 255, 255, 255),
               width: 400,
               child: Padding(
                 padding:
@@ -136,23 +232,73 @@ class _LoginPageState extends State<LoginPage> {
                 ),
               ),
             ),
-            SizedBox(
+            Container(
+              color: Color.fromARGB(200, 255, 255, 255),
               width: 400,
-              height: 100,
               child: Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 8, vertical: 20),
-                child: ElevatedButton(
-                  onPressed: _tryLogin,
-                  child: const Text(
-                    'Giriş',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 24),
-                  ),
-                ),
-              ),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 15),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Text('Beni hatırla'),
+                      Checkbox(
+                        onChanged: (bool? value) {
+                          setState(() {
+                            chkRemindMe = value;
+                          });
+                        },
+                        value: chkRemindMe,
+                      ),
+                    ],
+                  )),
             ),
+            SizedBox(
+                width: 400,
+                height: 100,
+                child: Row(
+                  children: [
+                    SizedBox(
+                      width: 200,
+                      height: 100,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 20),
+                        child: ElevatedButton(
+                          onPressed: _tryLogin,
+                          child: const Text(
+                            'Giriş',
+                            style: TextStyle(
+                                fontWeight: FontWeight.bold, fontSize: 24),
+                          ),
+                        ),
+                      ),
+                    ),
+                    SizedBox(
+                      width: 200,
+                      height: 100,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 20),
+                        child: ElevatedButton(
+                          style: ButtonStyle(
+                              backgroundColor:
+                                  MaterialStateProperty.all(Colors.black54),
+                              foregroundColor:
+                                  MaterialStateProperty.all(Colors.white)),
+                          onPressed: _showCardLogin,
+                          child: const Text(
+                            'Kartla Giriş',
+                            style: TextStyle(
+                                fontWeight: FontWeight.bold, fontSize: 18),
+                          ),
+                        ),
+                      ),
+                    )
+                  ],
+                )),
           ],
-        ),
+        )),
       ),
     );
   }

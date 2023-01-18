@@ -7,6 +7,11 @@ String _getTableData(int index, String field) {
   return _empHistory[index][field].toString();
 }
 
+String dbDateToHumanDate(String date) {
+  var splittedData = date.split('-');
+  return splittedData[2] + '.' + splittedData[1] + '.' + splittedData[0];
+}
+
 Future<void> showEmployeeHistory(BuildContext context, var rawData) async {
   _empHistory = rawData;
 
@@ -54,30 +59,29 @@ Future<void> showEmployeeHistory(BuildContext context, var rawData) async {
                             return null; // Use default value for other states and odd rows.
                           }),
                           cells: <DataCell>[
-                            DataCell(Text(
+                            DataCell(Text(dbDateToHumanDate(
                                 _getTableData(index, 'consumedDate')
-                                    .substring(0, 10),
-                                style: const TextStyle(fontSize: 20))),
-                            DataCell(Text(
-                                _getTableData(index, 'consumedDate')
-                                    .substring(11, 16),
-                                style: const TextStyle(fontSize: 20))),
-                            DataCell(Text(_getTableData(index, 'employeeName'),
-                                style: const TextStyle(fontSize: 20))),
-                            DataCell(Text(
-                                _getTableData(index, 'itemCategoryName'),
-                                style: const TextStyle(fontSize: 20))),
-                            DataCell(Text(_getTableData(index, 'itemName'),
-                                style: const TextStyle(fontSize: 20))),
-                            DataCell(Text(_getTableData(index, 'totalConsumed'),
-                                style: const TextStyle(fontSize: 20))),
+                                    .substring(0, 10)))),
+                            DataCell(Text(_getTableData(index, 'consumedDate')
+                                .substring(11, 16))),
+                            DataCell(
+                                Text(_getTableData(index, 'employeeName'))),
+                            DataCell(
+                                Text(_getTableData(index, 'itemCategoryName'))),
+                            DataCell(Text(_getTableData(index, 'itemName'))),
+                            DataCell(
+                                Text(_getTableData(index, 'totalConsumed'))),
                           ],
                         ),
                       ),
-                      dividerThickness: 5,
-                      dataRowHeight: 80,
+                      dividerThickness: 0,
+                      dataRowHeight: 25,
                       showCheckboxColumn: false,
                       showBottomBorder: true,
+                      dataTextStyle: const TextStyle(
+                        fontSize: 12,
+                        color: Colors.black,
+                      ),
                       headingTextStyle: const TextStyle(
                           fontWeight: FontWeight.bold, color: Colors.white),
                       headingRowColor: MaterialStateProperty.resolveWith(

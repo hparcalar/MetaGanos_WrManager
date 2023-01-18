@@ -29,8 +29,7 @@ Future<void> showEmployeeCredits(BuildContext context, var rawData) async {
                   child: DataTable(
                       columns: const [
                         DataColumn(label: Text('Stok')),
-                        DataColumn(label: Text('Kredi')),
-                        DataColumn(label: Text('Kalan')),
+                        DataColumn(label: Text('Kalan Bakiye')),
                       ],
                       rows: List<DataRow>.generate(
                         _creditsData.length,
@@ -52,26 +51,30 @@ Future<void> showEmployeeCredits(BuildContext context, var rawData) async {
                           }),
                           cells: <DataCell>[
                             DataCell(Text(
-                                _getTableData(index, 'itemName').length > 0
-                                    ? _getTableData(index, 'itemName')
-                                    : _getTableData(index, 'itemGroupName')
-                                                .length >
-                                            0
-                                        ? _getTableData(index, 'itemGroupName')
-                                        : _getTableData(
-                                            index, 'itemCategoryName'),
-                                style: const TextStyle(fontSize: 20))),
-                            DataCell(Text(_getTableData(index, 'creditByRange'),
-                                style: const TextStyle(fontSize: 20))),
-                            DataCell(Text(_getTableData(index, 'rangeCredit'),
-                                style: const TextStyle(fontSize: 20))),
+                              _getTableData(index, 'itemName').length > 0
+                                  ? _getTableData(index, 'itemName')
+                                  : _getTableData(index, 'itemGroupName')
+                                              .length >
+                                          0
+                                      ? _getTableData(index, 'itemGroupName')
+                                      : _getTableData(
+                                          index, 'itemCategoryName'),
+                            )),
+                            // DataCell(Text(_getTableData(index, 'creditByRange'),
+                            //     style: const TextStyle(fontSize: 20))),
+                            DataCell(Text(_getTableData(index, 'rangeCredit'))),
                           ],
                         ),
                       ),
-                      dividerThickness: 5,
-                      dataRowHeight: 80,
+                      dividerThickness: 0,
+                      columnSpacing: 2,
+                      dataRowHeight: 25,
                       showCheckboxColumn: false,
                       showBottomBorder: true,
+                      dataTextStyle: const TextStyle(
+                        fontSize: 12,
+                        color: Colors.black,
+                      ),
                       headingTextStyle: const TextStyle(
                           fontWeight: FontWeight.bold, color: Colors.white),
                       headingRowColor: MaterialStateProperty.resolveWith(
