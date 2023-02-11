@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:developer';
 
 import 'package:flutter/material.dart';
 import 'package:wr_manager/login.dart';
@@ -36,31 +37,48 @@ class _SettingsPageState extends State<SettingsPage> {
 
         if (configObj['employeeSelection'] != null) {
           setState(() {
-            chkEmployeeSelection = configObj['employeeSelection'];
+            try {
+              chkEmployeeSelection = configObj['employeeSelection'];
+            } catch (e) {}
           });
         }
-      } catch (e) {}
+      } catch (e) {
+        log(e.toString());
+      }
     });
   }
 
-  void _saveSettings() {
-    Map<String, dynamic> configObj = <String, dynamic>{};
-    configObj['serverAddr'] = txtServerAddr.text;
-    configObj['dealerCode'] = txtDealerCode.text;
-    configObj['plantCode'] = txtPlantCode.text;
-    configObj['warehouseCode'] = txtWarehouseCode.text;
-    configObj['employeeSelection'] = chkEmployeeSelection;
-    final String configJson = jsonEncode(configObj);
+  void _saveSettings() async {
+    try {
+      Map<String, dynamic> configObj = <String, dynamic>{};
+      configObj['serverAddr'] = txtServerAddr.text;
+      configObj['dealerCode'] = txtDealerCode.text;
+      configObj['plantCode'] = txtPlantCode.text;
+      configObj['warehouseCode'] = txtWarehouseCode.text;
 
-    final configFile = File('data/settings.json');
-    if (!configFile.existsSync()) configFile.createSync();
-    configFile.openWrite();
-    configFile.writeAsStringSync(configJson);
+      try {
+        configObj['employeeSelection'] = chkEmployeeSelection ?? false;
+      } catch (eInner) {}
 
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(builder: (context) => const LoginPage(title: '')),
-    );
+      final String configJson = jsonEncode(configObj);
+
+      if (configJson.isNotEmpty) {
+        final configFile = File('data/settings.json');
+        if (!(await configFile.exists())) await configFile.create();
+        var writer = configFile.openWrite();
+        writer.write(configJson);
+        //configFile.writeAsStringSync(configJson);
+        await writer.flush();
+        await writer.close();
+      }
+
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => const LoginPage(title: '')),
+      );
+    } catch (e) {
+      log(e.toString());
+    }
   }
 
   @override

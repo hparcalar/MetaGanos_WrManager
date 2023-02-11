@@ -83,10 +83,10 @@ class _LoginPageState extends State<LoginPage> {
             configObj['remindedLogin'] = txtLogin.text;
             configObj['remindedPwd'] = txtPassword.text;
 
-            final String configJson = jsonEncode(configObj);
+            // final String configJson = jsonEncode(configObj);
 
-            configFile.openWrite();
-            configFile.writeAsStringSync(configJson);
+            // configFile.openWrite();
+            // configFile.writeAsStringSync(configJson);
           } catch (e) {}
         });
       } else {
@@ -99,10 +99,10 @@ class _LoginPageState extends State<LoginPage> {
             configObj['remindedLogin'] = null;
             configObj['remindedPwd'] = null;
 
-            final String configJson = jsonEncode(configObj);
+            // final String configJson = jsonEncode(configObj);
 
-            configFile.openWrite();
-            configFile.writeAsStringSync(configJson);
+            // configFile.openWrite();
+            // configFile.writeAsStringSync(configJson);
           } catch (e) {}
         });
       }
@@ -240,17 +240,17 @@ class _LoginPageState extends State<LoginPage> {
                       const EdgeInsets.symmetric(horizontal: 8, vertical: 15),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Text('Beni hatırla'),
-                      Checkbox(
-                        onChanged: (bool? value) {
-                          setState(() {
-                            chkRemindMe = value;
-                          });
-                        },
-                        value: chkRemindMe,
-                      ),
-                    ],
+                    // children: [
+                    //   const Text('Beni hatırla'),
+                    //   Checkbox(
+                    //     onChanged: (bool? value) {
+                    //       setState(() {
+                    //         chkRemindMe = value;
+                    //       });
+                    //     },
+                    //     value: chkRemindMe,
+                    //   ),
+                    // ],
                   )),
             ),
             SizedBox(
