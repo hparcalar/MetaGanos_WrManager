@@ -30,6 +30,7 @@ Future<void> showEmployeeList(
       _stateFunc(() {
         _filteredEmpList = _empList
             .where((d) =>
+                search.hasMatch(d['employeeCode'].toString()) ||
                 search.hasMatch(d['employeeName'].toString()) ||
                 search.hasMatch(d['employeeCardCode'].toString()) ||
                 search.hasMatch(d['departmentName'].toString()))
