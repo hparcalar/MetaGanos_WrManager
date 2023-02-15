@@ -14,6 +14,7 @@ import 'package:wr_manager/employee_list.dart';
 import 'package:wr_manager/item_preview.dart';
 import 'package:wr_manager/login.dart';
 import 'package:wr_manager/model/wr_session.dart';
+import 'package:wr_manager/quantity_prompt.dart';
 import 'package:wr_manager/sale_history.dart';
 import 'package:wr_manager/ui/wr_alerts.dart';
 
@@ -94,6 +95,8 @@ class _WarehousePageState extends State<WarehousePage> {
 
   var employeeCredits = <dynamic>[];
 
+  var _lastItemIndex = -1;
+
   var itemCategories = <dynamic>[];
   var itemGroups = <dynamic>[];
   var items = <dynamic>[];
@@ -132,6 +135,19 @@ class _WarehousePageState extends State<WarehousePage> {
     });
   }
 
+  void _decreaseQuantity(int index) {
+    setState(() {
+      var rowData = itemDetails.elementAt(index);
+      if (rowData != null) {
+        if (rowData['quantity'] == 1) {
+          _removeRow(index);
+        } else if (rowData['quantity'] > 1) {
+          rowData['quantity']--;
+        }
+      }
+    });
+  }
+
   String _getItemRowData(int index, String field) {
     return filteredItems[index][field].toString();
   }
@@ -151,7 +167,19 @@ class _WarehousePageState extends State<WarehousePage> {
     return Uint8List(0);
   }
 
-  void _appendItem(int itemIndex) {
+  void _showQuantityDialog(int itemIndex) {
+    _lastItemIndex = itemIndex;
+    showQuantityPrompt(context, _onQuantityEntered);
+  }
+
+  void _onQuantityEntered(value) {
+    if (_lastItemIndex > -1 && int.tryParse(value) != null) {
+      _appendItem(_lastItemIndex, int.parse(value));
+      _lastItemIndex = -1;
+    }
+  }
+
+  void _appendItem(int itemIndex, [int quantity = 1]) {
     if (employeeObject == null || employeeObject['id'] == 0) {
       showWrAlert(context, 'Uyarı', 'Önce personel kartı okutulmalıdır.');
       return;
@@ -184,7 +212,7 @@ class _WarehousePageState extends State<WarehousePage> {
     }
 
     if (existingCredit == null ||
-        (existingCredit['rangeCredit'] - usedCredit) == 0) {
+        (existingCredit['rangeCredit'] - usedCredit - quantity + 1) <= 0) {
       showWrAlert(
           context, 'Uyarı', 'Bu ürün için yeterli bakiyeniz bulunmamaktadır.');
       return;
@@ -192,14 +220,14 @@ class _WarehousePageState extends State<WarehousePage> {
 
     setState(() {
       if (existingItem != null) {
-        existingItem['quantity'] = existingItem['quantity'] + 1;
+        existingItem['quantity'] = existingItem['quantity'] + quantity;
       } else {
         itemDetails.add({
           'itemName': itemRow['itemName'].toString(),
           'itemId': itemRow['id'],
           'itemGroupId': itemRow['itemGroupId'],
           'itemCategoryId': itemRow['itemCategoryId'],
-          'quantity': 1,
+          'quantity': quantity,
         });
       }
     });
@@ -1419,26 +1447,51 @@ class _WarehousePageState extends State<WarehousePage> {
                                             style: const TextStyle(
                                                 fontWeight: FontWeight.bold))),
                                         DataCell(
-                                          OutlinedButton(
-                                            style: ButtonStyle(
-                                                shape:
-                                                    MaterialStateProperty.all(
-                                                        RoundedRectangleBorder(
+                                          Row(
+                                            children: [
+                                              OutlinedButton(
+                                                style: ButtonStyle(
+                                                    shape: MaterialStateProperty
+                                                        .all(RoundedRectangleBorder(
                                                             borderRadius:
                                                                 BorderRadius
                                                                     .circular(
                                                                         5.0))),
-                                                side: MaterialStateProperty.all(
-                                                    const BorderSide(
-                                                        color: Colors.red,
-                                                        width: 1,
-                                                        style: BorderStyle
-                                                            .solid))),
-                                            onPressed: () => _removeRow(index),
-                                            child: const Icon(
-                                              Icons.delete,
-                                              size: 26.0,
-                                            ),
+                                                    side: MaterialStateProperty
+                                                        .all(const BorderSide(
+                                                            color: Colors.red,
+                                                            width: 1,
+                                                            style: BorderStyle
+                                                                .solid))),
+                                                onPressed: () =>
+                                                    _decreaseQuantity(index),
+                                                child: const Icon(
+                                                  Icons.vertical_align_bottom,
+                                                  size: 26.0,
+                                                ),
+                                              ),
+                                              OutlinedButton(
+                                                style: ButtonStyle(
+                                                    shape: MaterialStateProperty
+                                                        .all(RoundedRectangleBorder(
+                                                            borderRadius:
+                                                                BorderRadius
+                                                                    .circular(
+                                                                        5.0))),
+                                                    side: MaterialStateProperty
+                                                        .all(const BorderSide(
+                                                            color: Colors.red,
+                                                            width: 1,
+                                                            style: BorderStyle
+                                                                .solid))),
+                                                onPressed: () =>
+                                                    _removeRow(index),
+                                                child: const Icon(
+                                                  Icons.delete,
+                                                  size: 26.0,
+                                                ),
+                                              )
+                                            ],
                                           ),
                                         )
                                       ],
@@ -1963,6 +2016,26 @@ class _WarehousePageState extends State<WarehousePage> {
                                                                 size: 26.0,
                                                               ),
                                                             ),
+                                                            OutlinedButton(
+                                                              style: ButtonStyle(
+                                                                  shape: MaterialStateProperty.all(RoundedRectangleBorder(
+                                                                      borderRadius:
+                                                                          BorderRadius.circular(
+                                                                              5.0))),
+                                                                  side: MaterialStateProperty.all(const BorderSide(
+                                                                      color: Colors
+                                                                          .black87,
+                                                                      width: 1,
+                                                                      style: BorderStyle
+                                                                          .solid))),
+                                                              onPressed: () =>
+                                                                  _showQuantityDialog(
+                                                                      index),
+                                                              child: const Icon(
+                                                                Icons.keyboard,
+                                                                size: 26.0,
+                                                              ),
+                                                            )
                                                             // Padding(
                                                             //   padding:
                                                             //       const EdgeInsets
