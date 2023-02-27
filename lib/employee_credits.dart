@@ -7,6 +7,34 @@ String _getTableData(int index, String field) {
   return _creditsData[index][field].toString();
 }
 
+String _trsRangeType(String rType, String rLength) {
+  String _result = "";
+
+  int rangeType = int.parse(rType);
+  int rangeLength = int.parse(rLength);
+  String rStr = "";
+
+  if (rangeLength > 1) rStr = rangeLength.toString() + " ";
+
+  switch (rangeType) {
+    case 1:
+      _result = rStr + "GÜNLÜK";
+      break;
+    case 2:
+      _result = rStr + "HAFTALIK";
+      break;
+    case 3:
+      _result = rStr + "AYLIK";
+      break;
+    case 4:
+      _result = rStr + "SINIRSIZ";
+      break;
+    default:
+  }
+
+  return _result;
+}
+
 Future<void> showEmployeeCredits(BuildContext context, var rawData) async {
   _creditsData = rawData;
 
@@ -29,6 +57,8 @@ Future<void> showEmployeeCredits(BuildContext context, var rawData) async {
                   child: DataTable(
                       columns: const [
                         DataColumn(label: Text('Stok')),
+                        DataColumn(label: Text('Periyot')),
+                        DataColumn(label: Text('Kredi')),
                         DataColumn(label: Text('Kalan Bakiye')),
                       ],
                       rows: List<DataRow>.generate(
@@ -62,6 +92,11 @@ Future<void> showEmployeeCredits(BuildContext context, var rawData) async {
                             )),
                             // DataCell(Text(_getTableData(index, 'creditByRange'),
                             //     style: const TextStyle(fontSize: 20))),
+                            DataCell(Text(_trsRangeType(
+                                _getTableData(index, 'rangeType'),
+                                _getTableData(index, 'rangeLength')))),
+                            DataCell(
+                                Text(_getTableData(index, 'activeCredit'))),
                             DataCell(Text(_getTableData(index, 'rangeCredit'))),
                           ],
                         ),

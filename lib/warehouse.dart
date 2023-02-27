@@ -388,6 +388,8 @@ class _WarehousePageState extends State<WarehousePage> {
           employeeCredits = creditBody;
         });
       }
+
+      _bindCategories();
     }
   }
 
@@ -411,7 +413,7 @@ class _WarehousePageState extends State<WarehousePage> {
                 'plantCode': configObj['plantCode'],
                 'startDate': '${stDate}T00:00:00',
                 'endDate': '${enDate}T23:59:00',
-                'employeeId': employeeObject['id'],
+                'employeeId': [employeeObject['id']],
               }));
 
       if (getResult.statusCode == 200) {
@@ -421,7 +423,9 @@ class _WarehousePageState extends State<WarehousePage> {
             .compareTo(a['consumedDate'].toString()));
         showEmployeeHistory(context, itemList);
       }
-    } catch (e) {}
+    } catch (e) {
+      log(e.toString());
+    }
   }
 
   void _showEmployeeCredits() async {
