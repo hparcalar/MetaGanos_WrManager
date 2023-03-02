@@ -41,6 +41,7 @@ class _WarehousePageState extends State<WarehousePage> {
   final txtDepartmentName = TextEditingController();
   final txtSearch = TextEditingController();
   late FocusNode focusNodeOfCardNo;
+  bool isLoggedByCard = false;
   bool employeeSelection = false;
 
   @override
@@ -52,6 +53,7 @@ class _WarehousePageState extends State<WarehousePage> {
 
     try {
       WrSession session = WrSession();
+      isLoggedByCard = session.isLoggedByCard;
       if (session.readCardNo != null && session.readCardNo.length > 0) {
         txtCardNo.text = session.readCardNo;
         session.readCardNo = '';
@@ -1005,7 +1007,8 @@ class _WarehousePageState extends State<WarehousePage> {
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               SizedBox(
-                                  width: employeeSelection == false
+                                  width: !(employeeSelection == true &&
+                                          isLoggedByCard == false)
                                       ? MediaQuery.of(context).size.width *
                                               0.4 -
                                           20
@@ -1030,7 +1033,8 @@ class _WarehousePageState extends State<WarehousePage> {
                                       }
                                     },
                                   )),
-                              if (employeeSelection == true)
+                              if (employeeSelection == true &&
+                                  isLoggedByCard == false)
                                 SizedBox(
                                   width:
                                       MediaQuery.of(context).size.width * 0.1 -

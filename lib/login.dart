@@ -71,6 +71,7 @@ class _LoginPageState extends State<LoginPage> {
       session.userName = loginBody['Username'];
       session.userId = loginBody['UserId'];
       session.plantId = loginBody['FactoryId'];
+      session.isLoggedByCard = false;
 
       // save if remind me checked
       if (chkRemindMe == true) {

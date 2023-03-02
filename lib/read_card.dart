@@ -56,9 +56,13 @@ Future<void> showReadCardPrompt(BuildContext context, Function callback) async {
               WrSession session = WrSession();
               session.apiToken = loginBody['token'];
               session.plantId = loginBody['employee']['plantId'];
+              session.isLoggedByCard = true;
               _promptedCardNo = cardNo;
               txtCardNo.text = '';
-              Navigator.of(context).pop();
+              // ignore: use_build_context_synchronously
+              try {
+                Navigator.of(context).pop();
+              } catch (e) {}
               callback(cardNo);
             } else {
               if (cardNo.isNotEmpty) {

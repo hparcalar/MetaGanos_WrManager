@@ -7,6 +7,7 @@ class WrSession {
   late int plantId = 0;
   late int userId = 0;
   late String readCardNo = '';
+  late bool isLoggedByCard = false;
 
   factory WrSession() {
     return _singleton;
