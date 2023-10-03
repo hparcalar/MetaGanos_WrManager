@@ -123,7 +123,7 @@ class _WarehousePageState extends State<WarehousePage> {
       context,
       MaterialPageRoute(
           builder: (context) =>
-              const LoginPage(title: 'MetaGanos Depo Yönetimi')),
+              const LoginPage(title: 'MetaGanos Ürün Takip Yazılımı')),
     );
   }
 
@@ -229,6 +229,64 @@ class _WarehousePageState extends State<WarehousePage> {
           'itemId': itemRow['id'],
           'itemGroupId': itemRow['itemGroupId'],
           'itemCategoryId': itemRow['itemCategoryId'],
+          'quantity': quantity,
+        });
+      }
+    });
+  }
+
+  void _increaseQuantity(int itemIndex, [int quantity = 1]) {
+    if (employeeObject == null || employeeObject['id'] == 0) {
+      showWrAlert(context, 'Uyarı', 'Önce personel kartı okutulmalıdır.');
+      return;
+    }
+
+    if (employeeCredits == null || employeeCredits.length == 0) {
+      showWrAlert(
+          context, 'Uyarı', 'Personelin yeterli bakiyesi bulunmamaktadır.');
+      return;
+    }
+
+    var itemRow = itemDetails[itemIndex];
+
+    var item = filteredItems.firstWhere((e) => e['id'] == itemRow['itemId'],
+        orElse: () => null);
+
+    var existingCredit = employeeCredits.firstWhere(
+        (d) =>
+            (d['itemId'] == null &&
+                d['itemGroupId'] == null &&
+                d['itemCategoryId'] == itemRow['itemCategoryId']) ||
+            (d['itemId'] == null &&
+                d['itemGroupId'] == itemRow['itemGroupId']) ||
+            (d['itemId'] == itemRow['itemId']),
+        orElse: () => null);
+
+    var existingItem = itemDetails.firstWhere(
+        (d) => d['itemId'] == itemRow['itemId'],
+        orElse: () => null);
+
+    var usedCredit = 0;
+    if (existingItem != null) {
+      usedCredit = existingItem['quantity'];
+    }
+
+    if (existingCredit == null ||
+        (existingCredit['rangeCredit'] - usedCredit - quantity + 1) <= 0) {
+      showWrAlert(
+          context, 'Uyarı', 'Bu ürün için yeterli bakiyeniz bulunmamaktadır.');
+      return;
+    }
+
+    setState(() {
+      if (existingItem != null) {
+        existingItem['quantity'] = existingItem['quantity'] + quantity;
+      } else {
+        itemDetails.add({
+          'itemName': item['itemName'].toString(),
+          'itemId': item['id'],
+          'itemGroupId': item['itemGroupId'],
+          'itemCategoryId': item['itemCategoryId'],
           'quantity': quantity,
         });
       }
@@ -343,7 +401,7 @@ class _WarehousePageState extends State<WarehousePage> {
       final getResult =
           await get(configObj['serverAddr'] + 'Employee', headers: {
         'Content-Type': 'application/json',
-        'Authorization': 'Bearer ${session.apiToken}',
+        'Authorization': 'Bearer ${session.mainToken}',
       });
 
       if (getResult.statusCode == 200) {
@@ -522,6 +580,8 @@ class _WarehousePageState extends State<WarehousePage> {
     txtEmployeeName.text = '';
     txtDepartmentName.text = '';
     employeeCredits = [];
+
+    _bindCategories();
 
     setState(() {
       isEmployeeSelected = false;
@@ -956,7 +1016,7 @@ class _WarehousePageState extends State<WarehousePage> {
               fit: BoxFit.fitHeight,
             ),
           ),
-          const Text('Depo Yönetimi'),
+          const Text('Ürün Takip Yazılımı'),
         ]),
         centerTitle: true,
         actions: <Widget>[
@@ -1457,6 +1517,27 @@ class _WarehousePageState extends State<WarehousePage> {
                                         DataCell(
                                           Row(
                                             children: [
+                                              OutlinedButton(
+                                                style: ButtonStyle(
+                                                    shape: MaterialStateProperty
+                                                        .all(RoundedRectangleBorder(
+                                                            borderRadius:
+                                                                BorderRadius
+                                                                    .circular(
+                                                                        5.0))),
+                                                    side: MaterialStateProperty
+                                                        .all(const BorderSide(
+                                                            color: Colors.red,
+                                                            width: 1,
+                                                            style: BorderStyle
+                                                                .solid))),
+                                                onPressed: () =>
+                                                    _increaseQuantity(index),
+                                                child: const Icon(
+                                                  Icons.vertical_align_top,
+                                                  size: 26.0,
+                                                ),
+                                              ),
                                               OutlinedButton(
                                                 style: ButtonStyle(
                                                     shape: MaterialStateProperty

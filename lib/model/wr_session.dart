@@ -8,6 +8,9 @@ class WrSession {
   late int userId = 0;
   late String readCardNo = '';
   late bool isLoggedByCard = false;
+  late String lastLogin = '';
+  late String lastPass = '';
+  late String mainToken = '';
 
   factory WrSession() {
     return _singleton;

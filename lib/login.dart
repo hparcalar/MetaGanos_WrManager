@@ -71,6 +71,7 @@ class _LoginPageState extends State<LoginPage> {
       session.userName = loginBody['Username'];
       session.userId = loginBody['UserId'];
       session.plantId = loginBody['FactoryId'];
+      session.mainToken = session.apiToken;
       session.isLoggedByCard = false;
 
       // save if remind me checked
@@ -113,7 +114,7 @@ class _LoginPageState extends State<LoginPage> {
         context,
         MaterialPageRoute(
             builder: (context) =>
-                const WarehousePage(title: 'MetaGanos Depo Yönetimi')),
+                const WarehousePage(title: 'MetaGanos Ürün Takip Yazılımı')),
       );
     } else {
       // ignore: use_build_context_synchronously
@@ -134,7 +135,7 @@ class _LoginPageState extends State<LoginPage> {
         context,
         MaterialPageRoute(
             builder: (context) =>
-                const WarehousePage(title: 'MetaGanos Depo Yönetimi')),
+                const WarehousePage(title: 'MetaGanos Ürün Takip Yazılımı')),
       );
     }
   }
@@ -167,7 +168,7 @@ class _LoginPageState extends State<LoginPage> {
               fit: BoxFit.fitHeight,
             ),
           ),
-          const Text('Depo Yönetimi'),
+          const Text('Ürün Takip Yazılımı'),
         ]),
         centerTitle: true,
         actions: <Widget>[
@@ -260,7 +261,7 @@ class _LoginPageState extends State<LoginPage> {
                 child: Row(
                   children: [
                     SizedBox(
-                      width: 200,
+                      width: 400,
                       height: 100,
                       child: Padding(
                         padding: const EdgeInsets.symmetric(
@@ -275,7 +276,7 @@ class _LoginPageState extends State<LoginPage> {
                         ),
                       ),
                     ),
-                    SizedBox(
+                    /* SizedBox(
                       width: 200,
                       height: 100,
                       child: Padding(
@@ -295,7 +296,7 @@ class _LoginPageState extends State<LoginPage> {
                           ),
                         ),
                       ),
-                    )
+                    ) */
                   ],
                 )),
           ],

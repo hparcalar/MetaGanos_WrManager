@@ -13,7 +13,7 @@ class WrApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'MetaGanos Depo Yönetimi',
+      title: 'MetaGanos Ürün Takip Yazılımı',
       debugShowCheckedModeBanner: false,
       localizationsDelegates: GlobalMaterialLocalizations.delegates,
       supportedLocales: const [

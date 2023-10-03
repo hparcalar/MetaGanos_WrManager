@@ -20,20 +20,26 @@ void selectEmployee(int index) {
 Future<void> showEmployeeList(
     BuildContext context, var rawData, Function callback) async {
   final txtSearchForEmployee = TextEditingController();
+  final txtSearchForName = TextEditingController();
+  final txtSearchForCard = TextEditingController();
+  final txtSearchForDepartment = TextEditingController();
   var lastFilterReadDate = DateTime.now();
   var filterTimeOutIsRunning = false;
 
   void _runFilter() async {
     try {
       var search = RegExp(txtSearchForEmployee.text, caseSensitive: false);
+      var searchName = RegExp(txtSearchForName.text, caseSensitive: false);
+      var searchCard = RegExp(txtSearchForCard.text, caseSensitive: false);
+      var searchDep = RegExp(txtSearchForDepartment.text, caseSensitive: false);
 
       _stateFunc(() {
         _filteredEmpList = _empList
             .where((d) =>
-                search.hasMatch(d['employeeCode'].toString()) ||
-                search.hasMatch(d['employeeName'].toString()) ||
-                search.hasMatch(d['employeeCardCode'].toString()) ||
-                search.hasMatch(d['departmentName'].toString()))
+                search.hasMatch(d['employeeCode'].toString()) &&
+                searchName.hasMatch(d['employeeName'].toString()) &&
+                searchCard.hasMatch(d['employeeCardCode'].toString()) &&
+                searchDep.hasMatch(d['departmentName'].toString()))
             .toList();
       });
     } catch (e) {}
@@ -88,7 +94,7 @@ Future<void> showEmployeeList(
                           padding: const EdgeInsets.all(5),
                           child: SizedBox(
                               width:
-                                  MediaQuery.of(context).size.width * 0.3 - 10,
+                                  MediaQuery.of(context).size.width * 0.13 - 10,
                               child: RawKeyboardListener(
                                 focusNode: FocusNode(),
                                 child: TextFormField(
@@ -96,7 +102,7 @@ Future<void> showEmployeeList(
                                   controller: txtSearchForEmployee,
                                   decoration: const InputDecoration(
                                     border: UnderlineInputBorder(),
-                                    labelText: 'ARAMA',
+                                    labelText: 'SICIL ARAMA',
                                   ),
                                 ),
                                 onKey: (RawKeyEvent event) {
@@ -110,13 +116,86 @@ Future<void> showEmployeeList(
                         Padding(
                           padding: const EdgeInsets.all(5),
                           child: SizedBox(
-                            width: MediaQuery.of(context).size.width * 0.1 - 10,
+                              width:
+                                  MediaQuery.of(context).size.width * 0.13 - 10,
+                              child: RawKeyboardListener(
+                                focusNode: FocusNode(),
+                                child: TextFormField(
+                                  autofocus: true,
+                                  controller: txtSearchForName,
+                                  decoration: const InputDecoration(
+                                    border: UnderlineInputBorder(),
+                                    labelText: 'ISIM ARAMA',
+                                  ),
+                                ),
+                                onKey: (RawKeyEvent event) {
+                                  if (event.runtimeType == RawKeyUpEvent) {
+                                    lastFilterReadDate = DateTime.now();
+                                    _checkFilterTimeout();
+                                  }
+                                },
+                              )),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.all(5),
+                          child: SizedBox(
+                              width:
+                                  MediaQuery.of(context).size.width * 0.13 - 10,
+                              child: RawKeyboardListener(
+                                focusNode: FocusNode(),
+                                child: TextFormField(
+                                  autofocus: true,
+                                  controller: txtSearchForCard,
+                                  decoration: const InputDecoration(
+                                    border: UnderlineInputBorder(),
+                                    labelText: 'KART ARAMA',
+                                  ),
+                                ),
+                                onKey: (RawKeyEvent event) {
+                                  if (event.runtimeType == RawKeyUpEvent) {
+                                    lastFilterReadDate = DateTime.now();
+                                    _checkFilterTimeout();
+                                  }
+                                },
+                              )),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.all(5),
+                          child: SizedBox(
+                              width:
+                                  MediaQuery.of(context).size.width * 0.13 - 10,
+                              child: RawKeyboardListener(
+                                focusNode: FocusNode(),
+                                child: TextFormField(
+                                  autofocus: true,
+                                  controller: txtSearchForDepartment,
+                                  decoration: const InputDecoration(
+                                    border: UnderlineInputBorder(),
+                                    labelText: 'DEPARTMAN ARAMA',
+                                  ),
+                                ),
+                                onKey: (RawKeyEvent event) {
+                                  if (event.runtimeType == RawKeyUpEvent) {
+                                    lastFilterReadDate = DateTime.now();
+                                    _checkFilterTimeout();
+                                  }
+                                },
+                              )),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.all(5),
+                          child: SizedBox(
+                            width:
+                                MediaQuery.of(context).size.width * 0.11 - 10,
                             height: 45,
                             child: Padding(
                               padding: const EdgeInsets.only(left: 5),
                               child: ElevatedButton(
                                 onPressed: () => {
                                   txtSearchForEmployee.text = '',
+                                  txtSearchForCard.text = '',
+                                  txtSearchForName.text = '',
+                                  txtSearchForDepartment.text = '',
                                   _runFilter(),
                                 },
                                 child: Row(
